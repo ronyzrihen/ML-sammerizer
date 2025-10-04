@@ -1,2 +1,2 @@
-# Machime Learning Sammerizer
+# Machine Learning Sammerizer
 

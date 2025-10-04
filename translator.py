@@ -1,4 +1,5 @@
 from transformers import pipeline
+from pydantic import BaseModel
 
 class Translator:
     def __init__(self):
@@ -12,8 +13,8 @@ class Translator:
         )
         return res
     
-# if __name__ == "__main__":
-#     translator = Translator()
-#     text = "אניגמה היא משפחה של מכונות להצפנה ולפענוח של מסרים טקסטואליים, ששימשו את הכוחות הגרמנים והאיטלקים במלחמת העולם השנייה. בזכות התקשורת המוצפנת שאפשרה האניגמה, הצליח הקריגסמרינה (הצי הגרמני), ובמיוחד צי הצוללות, במהלך המערכה באוקיינוס האטלנטי (1939–1945), להטיל מצור אפקטיבי על בריטניה, מצור שמנע אספקת מזון ואמצעי לחימה לאי הבריטי, בדרך הים."
-#     translation = translator.translate(text)
-#     print(translation)
+class TranslateRequest(BaseModel):
+    text: str
+    src_lang: str = "heb_Hebr"
+    tgt_lang: str = "eng_Latn"
+
