@@ -8,17 +8,31 @@ services:
       - ollama_data:/root/.ollama
     restart: unless-stopped
 
+  # app:
+  #   build: .
+  #   container_name: ml-summarizer-app
+  #   ports:
+  #     - "8001:8000"
+  #   depends_on:
+  #     - ollama
+  #   environment:
+  #     - OLLAMA_API_URL=http://ollama:11434
+  #     - MODEL_NAME=rouge/phi-3.5-mini-4k-instruct
+  #   restart: unless-stopped
   app:
     build: .
     container_name: ml-summarizer-app
+    volumes:
+      - .:/app
     ports:
-      - "8001:8000"
+      - "8000:8000"
     depends_on:
       - ollama
     environment:
       - OLLAMA_API_URL=http://ollama:11434
       - MODEL_NAME=rouge/phi-3.5-mini-4k-instruct
-    restart: unless-stopped
+    command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+
 volumes: 
   ollama_data:
     name: ollama_data

@@ -18,4 +18,5 @@ class TranslateRequest(BaseModel):
     text: str
     src_lang: str = "heb_Hebr"
     tgt_lang: str = "eng_Latn"
+    stream: bool = False
 

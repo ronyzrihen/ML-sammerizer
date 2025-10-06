@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from services.Translator import Translator, TranslateRequest
 from services.Sammerizer import Summerizer
 
@@ -34,7 +35,11 @@ def summerize(req: TranslateRequest):
     translated_text = translate(req.text, req.src_lang, req.tgt_lang)
     print("translated_text:", translated_text)
     print("Summarizing text...")
-    return app_state["summerizer"].summerize(translated_text)
+    summerize = app_state["summerizer"].summerize(translated_text, req.stream)
+    print("summ", summerize)
+    if req.stream:
+        return StreamingResponse(summerize, media_type="text/event-stream")
+    return summerize
 
 def translate(text: str, src_lang ="heb_Hebr", tgt_lang ="eng_Latn") -> str:
     translator = app_state.get("translator")
