@@ -1,4 +1,5 @@
 from transformers import pipeline
+
 from pydantic import BaseModel
 
 class Translator:
@@ -11,7 +12,7 @@ class Translator:
             src_lang=src_lang,
             tgt_lang=tgt_lang,
         )
-        return res
+        return res[0]['translation_text']
     
 class TranslateRequest(BaseModel):
     text: str
