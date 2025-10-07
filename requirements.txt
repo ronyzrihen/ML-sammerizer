@@ -1,7 +1,9 @@
 requests
 fastapi
 uvicorn
-transformers
+transformers==4.57.0
 torch 
 torchvision 
 torchaudio
+accelerate
+

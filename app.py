@@ -28,6 +28,7 @@ def get_translatation(req: TranslateRequest):
     if not req.text:
         return {"error": "Text is required"}
     if req.stream:
+        print("streaming", flush=True)
         streamed_translation = translator.stream_translation(
             text=req.text,
             src_lang=req.src_lang,
@@ -41,17 +42,24 @@ def summerize(req: TranslateRequest):
     if not req.text:
         return {"error": "Text is required"}
     print("Translating text...")
-    translated_text = translate(req.text, req.src_lang, req.tgt_lang)
+    translated_text = translate(req.text, req.src_lang)
     print("translated_text:", translated_text)
     print("Summarizing text...")
-    summerize = app_state["summerizer"].summerize(translated_text, req.stream)
-    print("summ", summerize)
-    if req.stream:
+    is_target_english = req.tgt_lang == "eng_Latn" # TODO: move lang to enum
+    summerize = app_state["summerizer"].summerize(translated_text, stream=is_target_english)
+
+    if is_target_english:
         return StreamingResponse(summerize, media_type="text/event-stream")
-    return summerize
+    
+    translator = app_state.get("translator")
+    streamed_translation = translator.stream_translation(
+            text=summerize,
+            tgt_lang=req.src_lang
+        )
+    return StreamingResponse(streamed_translation, media_type="text/event-stream")
 
 def translate(text: str, src_lang ="heb_Hebr", tgt_lang ="eng_Latn") -> str:
     translator = app_state.get("translator")
-    translation = translator.translate(text, src_lang, tgt_lang)
+    translation = translator.translate(text, src_lang)
     return translation
     
