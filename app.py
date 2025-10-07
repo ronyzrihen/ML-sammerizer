@@ -1,65 +1,66 @@
-import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
 from fastapi.responses import StreamingResponse
-from services.Translator import Translator, TranslateRequest
-from services.Sammerizer import Summerizer
+from services.Translator import Translator
+from services.Summerizer import Summerizer
+from schemas.summerize import Language, SummerizeRequest
 
+translator = Translator()
+summerizer = Summerizer()
 
-app_state = {}
+app = FastAPI(
+    title="AI Summarizer API",
+    description="An API to summarize text, with optional translation.",
+    version="1.0.0",
+)
 
-async def lifespan(app: FastAPI):
-    ollama_url = os.getenv("OLLAMA_API_URL")
-    phi_model_name = os.getenv("PHI_MODEL_NAME")
-    nllb_model_name = os.getenv("NLLB_MODEL_NAME")
-    app_state["summerizer"] = Summerizer(ollama_url, phi_model_name)
-    app_state["translator"] = Translator(nllb_model_name)
-    yield
-    app_state.clear()
-
-app = FastAPI(lifespan=lifespan)
 
 @app.get("/healthcheck")
 def healthcheck():
+    """
+    Check if the API is up and running.
+    """
     return "Summerizer is up and running"
 
-@app.post("/translate")
-def get_translatation(req: TranslateRequest):
-    translator = app_state.get("translator")
-    if not req.text:
-        return {"error": "Text is required"}
-    if req.stream:
-        print("streaming", flush=True)
-        streamed_translation = translator.stream_translation(
-            text=req.text,
-            src_lang=req.src_lang,
-            tgt_lang=req.tgt_lang
-        )
-        return StreamingResponse(streamed_translation, media_type="text/event-stream")
-    return translate(req.text, req.src_lang, req.tgt_lang)
 
 @app.post("/summerize")
-def summerize(req: TranslateRequest):
+def summerize(
+    req: SummerizeRequest = Body(
+        ...,
+        example={
+            "text": "טקסט ארוך בעברית שדורש סיכום... החלל הוא מקום עצום ומסתורי, מלא בכוכבים, גלקסיות ותופעות קוסמיות שטרם הבנו. האנושות תמיד שאפה לחקור אותו.",
+            "src_lang": "heb_Hebr",
+            "tgt_lang": "eng_Latn",
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "max_tokens": 256
+        },
+    )
+):
+    """
+    Summarize a given text with the following workflow:
+
+    1.  **Translate (if necessary):** The input text is translated to English for the summarization model.
+    2.  **Summarize:** The English text is summarized.
+    3.  **Translate Back (if necessary):** If the target language is not English, the summary is translated back to the target language.
+
+    The response is always a stream.
+    """
     if not req.text:
         return {"error": "Text is required"}
     print("Translating text...")
-    translated_text = translate(req.text, req.src_lang)
+    translated_text = translator.translate_to_english(req.text, req.src_lang.value)
     print("translated_text:", translated_text)
     print("Summarizing text...")
-    is_target_english = req.tgt_lang == "eng_Latn" # TODO: move lang to enum
-    summerize = app_state["summerizer"].summerize(translated_text, stream=is_target_english)
+
+    is_target_english = req.tgt_lang.value == Language.ENGLISH.value
+    options = {"temperature": req.temperature, "top_p": req.top_p, "num_predict": req.max_tokens}
+    summary_stream = summerizer.summarize(translated_text, options, stream=is_target_english)
 
     if is_target_english:
-        return StreamingResponse(summerize, media_type="text/event-stream")
-    
-    translator = app_state.get("translator")
-    streamed_translation = translator.stream_translation(
-            text=summerize,
-            tgt_lang=req.src_lang
-        )
-    return StreamingResponse(streamed_translation, media_type="text/event-stream")
+        return StreamingResponse(summary_stream, media_type="text/event-stream")
 
-def translate(text: str, src_lang ="heb_Hebr", tgt_lang ="eng_Latn") -> str:
-    translator = app_state.get("translator")
-    translation = translator.translate(text, src_lang)
-    return translation
-    
+    translated_stream = translator.translate_from_english(
+        text=summary_stream,
+        tgt_lang=req.tgt_lang.value
+    )
+    return StreamingResponse(translated_stream, media_type="text/event-stream")
