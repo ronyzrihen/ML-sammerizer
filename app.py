@@ -8,23 +8,32 @@ from services.Sammerizer import Summerizer
 app_state = {}
 
 async def lifespan(app: FastAPI):
-    ollama_url = os.getenv("OLLAMA_API_URL", "http://localhost:11434")
-    model_name = os.getenv("MODEL_NAME", "rouge/phi-3.5-mini-4k-instruct")
-    app_state["summerizer"] = Summerizer(ollama_url, model_name)
-    app_state["translator"] = Translator()
+    ollama_url = os.getenv("OLLAMA_API_URL")
+    phi_model_name = os.getenv("PHI_MODEL_NAME")
+    nllb_model_name = os.getenv("NLLB_MODEL_NAME")
+    app_state["summerizer"] = Summerizer(ollama_url, phi_model_name)
+    app_state["translator"] = Translator(nllb_model_name)
     yield
     app_state.clear()
 
 app = FastAPI(lifespan=lifespan)
 
-@app.get("/")
+@app.get("/healthcheck")
 def healthcheck():
-    return "translator is up and running"
+    return "Summerizer is up and running"
 
 @app.post("/translate")
 def get_translatation(req: TranslateRequest):
+    translator = app_state.get("translator")
     if not req.text:
         return {"error": "Text is required"}
+    if req.stream:
+        streamed_translation = translator.stream_translation(
+            text=req.text,
+            src_lang=req.src_lang,
+            tgt_lang=req.tgt_lang
+        )
+        return StreamingResponse(streamed_translation, media_type="text/event-stream")
     return translate(req.text, req.src_lang, req.tgt_lang)
 
 @app.post("/summerize")
