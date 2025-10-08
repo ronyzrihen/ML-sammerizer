@@ -1,7 +1,7 @@
 from requests import post
 import json
 import httpx
-from core import singleton
+from core.decorators import singleton
 from config import PHI_MODEL_NAME, OLLAMA_API_URL
 from services.Translator import Translator
 from schemas import Language

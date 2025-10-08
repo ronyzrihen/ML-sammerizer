@@ -1,9 +1,11 @@
-from fastapi import FastAPI, Body
+from core.logger import logger
+from core.decorators import handle_errors
 from services.Translator import Translator
 from services.Summerizer import Summerizer
-from fastapi.responses import StreamingResponse
 from schemas.summerize import SummerizeRequest
 from schemas.translate import TranslateRequest
+from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, Body, HTTPException
 
 translator = Translator()
 summerizer = Summerizer(translator)
@@ -16,10 +18,12 @@ app = FastAPI(
 
 
 @app.get("/healthcheck")
+@handle_errors
 def healthcheck():
     """
     Check if the API is up and running.
     """
+    logger.info("Healthcheck endpoint was called.")
     return "Summerizer is up and running"
 
 
@@ -28,10 +32,10 @@ def healthcheck():
     summary="Translate text between languages",
     description=(
         "Translates the given text from the source language (`src_lang`) "
-        "to the target language (`tgt_lang`) using the NLLB translation model. "
-        "Supports ISO-like language codes such as `eng_Latn` for English and `heb_Hebr` for Hebrew."
+        "to the target language (`tgt_lang`) using the NLLB translation model."
     ),
 )
+@handle_errors
 def translate(
     req: TranslateRequest = Body(
         ...,
@@ -42,8 +46,13 @@ def translate(
         },
     )
 ):
+    if not req.text or not req.text.strip():
+        raise HTTPException(status_code=400, detail="Text field cannot be empty.")
+    
+    logger.info(f"Translating text from {req.src_lang.value} to {req.tgt_lang.value}")
+    translation_result = translator.translate(req.text, req.src_lang.value, req.tgt_lang.value)
     return {
-        "translation": translator.translate(req.text, req.src_lang.value, req.tgt_lang.value)
+        "translation": translation_result
     }
 
 
@@ -60,23 +69,30 @@ Summarize a given text using a multi-step workflow:
 The response is returned as a **text/event-stream** for real-time updates.
 """
 )
+@handle_errors
 def summerize(
     req: SummerizeRequest = Body(
         ...,
         example={
-            "text": "טקסט ארוך בעברית שדורש סיכום... החלל הוא מקום עצום ומסתורי, מלא בכוכבים, גלקסיות ותופעות קוסמיות שטרם הבנו. האנושות תמיד שאפה לחקור אותו.",
+            "text": """
+            אניגמה היא משפחה של מכונות להצפנה ולפענוח של מסרים טקסטואליים,
+            ששימשו את הכוחות הגרמנים והאיטלקים במלחמת העולם השנייה. בזכות התקשורת המוצפנת שאפשרה האניגמה,
+            הצליח הקריגסמרינה (הצי הגרמני), ובמיוחד צי הצוללות, במהלך המערכה באוקיינוס האטלנטי (1939–1945),
+            להטיל מצור אפקטיבי על בריטניה, מצור שמנע אספקת מזון ואמצעי לחימה לאי הבריטי, בדרך הים.
+            """,
             "src_lang": "heb_Hebr",
-            "tgt_lang": "eng_Latn",
-            "temperature": 0.7,
-            "top_p": 0.9,
-            "max_tokens": 256
+            "tgt_lang": "heb_Hebr",
+            "temperature": 0.7, "top_p": 0.9, "max_tokens": 256
         },
     )
 ):
-    if not req.text:
-        return {"error": "Text is required"}
+    if not req.text or not req.text.strip():
+        raise HTTPException(status_code=400, detail="Text field cannot be empty.")
+    
+    logger.info(f"Summarizing text from {req.src_lang.value} to {req.tgt_lang.value}")
     translated_text = translator.translate_to_english(req.text, req.src_lang.value)
     options = {"temperature": req.temperature, "top_p": req.top_p, "num_predict": req.max_tokens}
     summary_stream = summerizer.summarize(translated_text, options, req.tgt_lang.value)
 
     return StreamingResponse(summary_stream, media_type="text/event-stream")
+

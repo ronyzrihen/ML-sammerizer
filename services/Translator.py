@@ -1,5 +1,5 @@
 import torch
-from core import singleton
+from core.decorators import singleton
 from config import NLLB_MODEL_NAME
 from schemas import Language
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from . import Language
 
+
 class TranslateRequest(BaseModel):
     text: str = Field(
         ...,
