@@ -1,5 +1,5 @@
-import logging
 import sys
+import logging
 
 logger = logging.getLogger("summarizer_api")
 logger.setLevel(logging.INFO)

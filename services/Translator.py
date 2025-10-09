@@ -1,7 +1,8 @@
 import torch
-from core.decorators import singleton
-from config import NLLB_MODEL_NAME
 from schemas import Language
+from core.logger import logger
+from config import NLLB_MODEL_NAME
+from core.decorators import singleton
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 
@@ -17,13 +18,17 @@ class Translator:
         )
 
     def translate(self, text: str, src_lang: str, tgt_lang: str):
-        self.tokenizer.src_lang = src_lang
-        inputs = self.tokenizer(text, return_tensors="pt")
-        inputs["forced_bos_token_id"] = self.tokenizer.convert_tokens_to_ids(tgt_lang)
-        output_ids = self.model.generate(**inputs)
-        res = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
-        return res
-
+        try:
+            self.tokenizer.src_lang = src_lang
+            inputs = self.tokenizer(text, return_tensors="pt")
+            inputs["forced_bos_token_id"] = self.tokenizer.convert_tokens_to_ids(tgt_lang)
+            output_ids = self.model.generate(**inputs)
+            res = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
+            return res
+        except Exception as e:
+            logger.error(f"Error during translation from {src_lang} to {tgt_lang}: {e}", exc_info=True)
+            raise Exception("Translation model failed.") from e
+        
     def translate_to_english(self, text, src_lang=Language.HEBREW.value):
         return self.translate(text, src_lang, Language.ENGLISH.value)
 

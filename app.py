@@ -13,7 +13,6 @@ summerizer = Summerizer(translator)
 app = FastAPI(
     title="AI Summarizer API",
     description="An API to summarize text, with optional translation.",
-    version="1.0.0",
 )
 
 
@@ -57,8 +56,7 @@ def translate(
 
 
 @app.post(
-    "/summerize",
-    summary="Summarize a given text",
+    "/summarize",
     description="""
 Summarize a given text using a multi-step workflow:
 
@@ -70,7 +68,7 @@ The response is returned as a **text/event-stream** for real-time updates.
 """
 )
 @handle_errors
-def summerize(
+def summarize(
     req: SummerizeRequest = Body(
         ...,
         example={
@@ -88,11 +86,10 @@ def summerize(
 ):
     if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Text field cannot be empty.")
-    
+
     logger.info(f"Summarizing text from {req.src_lang.value} to {req.tgt_lang.value}")
     translated_text = translator.translate_to_english(req.text, req.src_lang.value)
     options = {"temperature": req.temperature, "top_p": req.top_p, "num_predict": req.max_tokens}
     summary_stream = summerizer.summarize(translated_text, options, req.tgt_lang.value)
 
     return StreamingResponse(summary_stream, media_type="text/event-stream")
-

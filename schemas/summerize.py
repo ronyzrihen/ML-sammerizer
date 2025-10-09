@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
 from . import Language
+from pydantic import BaseModel, Field
 
 
 class SummerizeRequest(BaseModel):
